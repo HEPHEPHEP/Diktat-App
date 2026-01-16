@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dictation Admin</title>
+    <style>
+        :root{--bg:#0f172a;--card:#1e293b;--input:#334155;--border:#475569;--text:#f1f5f9;--muted:#94a3b8;--primary:#3b82f6;--success:#22c55e;--danger:#ef4444;--warning:#f59e0b}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+        .login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+        .login-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:32px;width:100%;max-width:380px}
+        .logo{text-align:center;margin-bottom:24px}.logo h1{font-size:22px;margin-top:8px}.logo p{color:var(--muted);font-size:13px}
+        .app{display:none;min-height:100vh}.app.active{display:flex}
+        .sidebar{width:220px;background:var(--card);border-right:1px solid var(--border);padding:16px 0;display:flex;flex-direction:column}
+        .sidebar h2{padding:0 16px 16px;font-size:16px;border-bottom:1px solid var(--border);margin-bottom:12px}
+        .nav-item{display:flex;align-items:center;gap:10px;padding:10px 16px;color:var(--muted);cursor:pointer;font-size:14px}
+        .nav-item:hover{background:var(--input);color:var(--text)}.nav-item.active{background:var(--primary);color:#fff}
+        .sidebar-footer{margin-top:auto;padding:16px;border-top:1px solid var(--border)}
+        .user-info{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+        .avatar{width:32px;height:32px;background:var(--primary);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:13px}
+        .main{flex:1;padding:20px;overflow-y:auto}
+        .page{display:none}.page.active{display:block}
+        .page-header{margin-bottom:20px}.page-header h1{font-size:22px;margin-bottom:4px}.page-header p{color:var(--muted);font-size:13px}
+        .form-group{margin-bottom:14px}.form-label{display:block;margin-bottom:4px;font-size:12px;color:var(--muted)}
+        .form-input{width:100%;padding:10px 12px;background:var(--input);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px}
+        .form-input:focus{outline:none;border-color:var(--primary)}
+        .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 14px;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer}
+        .btn-primary{background:var(--primary);color:#fff}.btn-danger{background:var(--danger);color:#fff}
+        .btn-secondary{background:var(--input);color:var(--text);border:1px solid var(--border)}
+        .btn-sm{padding:7px 10px;font-size:12px}.btn-block{width:100%}
+        .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+        .stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px}
+        .stat-value{font-size:28px;font-weight:bold}.stat-label{color:var(--muted);font-size:12px;margin-top:2px}
+        .stat-sub{font-size:11px;color:var(--muted);margin-top:4px}
+        .progress{height:6px;background:var(--input);border-radius:3px;margin-top:8px;overflow:hidden}
+        .progress-bar{height:100%;background:var(--primary);transition:width .3s}
+        .progress-bar.warn{background:var(--warning)}.progress-bar.danger{background:var(--danger)}
+        .card{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:16px}
+        .card-header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border)}
+        .card-title{font-size:14px;font-weight:600}.card-body{padding:16px}
+        table{width:100%;border-collapse:collapse}
+        th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);font-size:13px}
+        th{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;background:var(--input)}
+        th:first-child{border-radius:6px 0 0 6px}th:last-child{border-radius:0 6px 6px 0}
+        .badge{display:inline-block;padding:3px 8px;border-radius:99px;font-size:11px;font-weight:500}
+        .badge-success{background:rgba(34,197,94,.2);color:var(--success)}
+        .badge-danger{background:rgba(239,68,68,.2);color:var(--danger)}
+        .badge-warning{background:rgba(245,158,11,.2);color:var(--warning)}
+        .badge-primary{background:rgba(59,130,246,.2);color:var(--primary)}
+        .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:1000;padding:20px}
+        .modal-bg.active{display:flex}
+        .modal{background:var(--card);border:1px solid var(--border);border-radius:10px;width:100%;max-width:420px}
+        .modal-header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border)}
+        .modal-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px}
+        .modal-body{padding:16px}.modal-footer{padding:14px 16px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+        .toast-box{position:fixed;top:16px;right:16px;z-index:2000}
+        .toast{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:10px 14px;margin-bottom:8px;box-shadow:0 4px 12px rgba(0,0,0,.3);animation:slideIn .3s}
+        @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+        .toast.success{border-left:3px solid var(--success)}.toast.error{border-left:3px solid var(--danger)}
+        .action-btn{background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;font-size:14px}
+        .action-btn:hover{color:var(--text)}.action-btn.danger:hover{color:var(--danger)}
+        .empty{text-align:center;padding:32px;color:var(--muted)}
+        .checkbox-label{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
+        .checkbox-label input{width:16px;height:16px;accent-color:var(--primary)}
+        .license-key{font-family:monospace;background:var(--input);padding:3px 6px;border-radius:4px;font-size:12px;letter-spacing:1px}
+        .license-box{background:var(--input);border:1px solid var(--border);border-radius:10px;padding:20px;text-align:center}
+        .license-box h3{margin-bottom:6px;font-size:15px}.license-box p{color:var(--muted);font-size:12px;margin-bottom:14px}
+        .license-input{display:flex;gap:8px;max-width:340px;margin:0 auto}
+        .license-input input{flex:1;text-transform:uppercase;letter-spacing:1px;text-align:center;font-family:monospace}
+        .online{display:inline-flex;align-items:center;gap:5px}
+        .online-dot{width:7px;height:7px;border-radius:50%;background:var(--success);animation:pulse 2s infinite}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+        .err{color:var(--danger);font-size:12px;margin-bottom:12px;text-align:center}
+    </style>
+</head>
+<body>
+    <div class="login" id="loginScreen">
+        <div class="login-box">
+            <div class="logo"><div style="font-size:36px">🎤</div><h1>Dictation Admin</h1><p>Server-Verwaltung</p></div>
+            <form id="loginForm">
+                <div class="form-group"><label class="form-label">Server URL</label><input type="url" id="serverUrl" class="form-input" value="http://localhost:8080" required></div>
+                <div class="form-group"><label class="form-label">E-Mail</label><input type="email" id="loginEmail" class="form-input" placeholder="admin@localhost" required></div>
+                <div class="form-group"><label class="form-label">Passwort</label><input type="password" id="loginPassword" class="form-input" required></div>
+                <div id="loginError" class="err" style="display:none"></div>
+                <button type="submit" class="btn btn-primary btn-block">Anmelden</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="app" id="app">
+        <nav class="sidebar">
+            <h2>🎤 Dictation</h2>
+            <div class="nav-item active" data-page="dashboard">📊 Dashboard</div>
+            <div class="nav-item" data-page="license">🔑 Lizenz</div>
+            <div class="nav-item" data-page="users">👥 Benutzer</div>
+            <div class="sidebar-footer">
+                <div class="user-info"><div class="avatar" id="avatar">A</div><div><div style="font-weight:500;font-size:13px" id="userName">Admin</div><div style="font-size:11px;color:var(--muted)">Administrator</div></div></div>
+                <button class="btn btn-secondary btn-sm btn-block" id="logoutBtn">Abmelden</button>
+            </div>
+        </nav>
+        <main class="main">
+            <div class="page active" id="page-dashboard">
+                <div class="page-header"><h1>Dashboard</h1><p>Übersicht</p></div>
+                <div class="stats" id="stats"></div>
+                <div class="card"><div class="card-header"><span class="card-title">Aktive Verbindungen</span></div><div class="card-body" id="connections"><p class="empty">Keine</p></div></div>
+            </div>
+            <div class="page" id="page-license">
+                <div class="page-header"><h1>Lizenz</h1><p>Lizenz aktivieren und verwalten</p></div>
+                <div id="licenseContent"></div>
+            </div>
+            <div class="page" id="page-users">
+                <div class="page-header"><h1>Benutzer</h1><p>Benutzer verwalten</p></div>
+                <div class="card">
+                    <div class="card-header"><span class="card-title">Alle Benutzer</span><button class="btn btn-primary btn-sm" onclick="openUserModal()">+ Neu</button></div>
+                    <div class="card-body" style="padding:0"><table><thead><tr><th>Name</th><th>E-Mail</th><th>Rolle</th><th>Status</th><th>Online</th><th></th></tr></thead><tbody id="usersTable"></tbody></table></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="modal-bg" id="userModal">
+        <div class="modal">
+            <div class="modal-header"><h3 id="userModalTitle">Neuer Benutzer</h3><button class="modal-close" onclick="closeModal('userModal')">&times;</button></div>
+            <form id="userForm">
+                <div class="modal-body">
+                    <input type="hidden" id="userId">
+                    <div class="form-group"><label class="form-label">Name *</label><input type="text" id="userNameInput" class="form-input" required></div>
+                    <div class="form-group"><label class="form-label">E-Mail *</label><input type="email" id="userEmail" class="form-input" required></div>
+                    <div class="form-group"><label class="form-label" id="pwLabel">Passwort *</label><input type="password" id="userPassword" class="form-input"></div>
+                    <div class="form-group"><label class="form-label">Rolle</label><select id="userRole" class="form-input"><option value="user">Benutzer</option><option value="admin">Administrator</option></select></div>
+                    <div class="form-group"><label class="checkbox-label"><input type="checkbox" id="userActive" checked> Aktiv</label></div>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('userModal')">Abbrechen</button><button type="submit" class="btn btn-primary">Speichern</button></div>
+            </form>
+        </div>
+    </div>
+
+    <div class="toast-box" id="toasts"></div>
+
+    <script>
+        let serverUrl = localStorage.getItem('a_url') || 'http://localhost:8080';
+        let token = localStorage.getItem('a_token') || '';
+        let user = null, users = [], refreshInt = null;
+        document.getElementById('serverUrl').value = serverUrl;
+
+        const api = async (ep, opt = {}) => {
+            const r = await fetch(`${serverUrl}/api${ep}`, { ...opt, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...opt.headers } });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.error || 'Fehler');
+            return d;
+        };
+
+        const toast = (msg, type = 'success') => { const el = document.createElement('div'); el.className = `toast ${type}`; el.textContent = msg; document.getElementById('toasts').appendChild(el); setTimeout(() => el.remove(), 3000); };
+        const openModal = id => document.getElementById(id).classList.add('active');
+        const closeModal = id => document.getElementById(id).classList.remove('active');
+        const showScreen = id => { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); };
+        const showPage = id => { document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); document.getElementById('page-' + id).classList.add('active'); document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === id)); };
+
+        async function login(email, pw) {
+            serverUrl = document.getElementById('serverUrl').value.replace(/\/$/, '');
+            localStorage.setItem('a_url', serverUrl);
+            const d = await api('/auth/login', { method: 'POST', body: JSON.stringify({ email, password: pw, device_type: 'desktop' }) });
+            const me = await api('/auth/me', { headers: { Authorization: `Bearer ${d.token}` } });
+            if (me.user.role !== 'admin') throw new Error('Admin erforderlich');
+            token = d.token; user = me.user;
+            localStorage.setItem('a_token', token);
+            showApp();
+        }
+
+        function logout() { if (refreshInt) clearInterval(refreshInt); token = ''; user = null; localStorage.removeItem('a_token'); document.getElementById('loginScreen').style.display = 'flex'; document.getElementById('app').classList.remove('active'); }
+
+        async function checkAuth() { if (!token) return; try { const d = await api('/auth/me'); if (d.user.role !== 'admin') throw 0; user = d.user; showApp(); } catch { logout(); } }
+
+        function showApp() {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('app').classList.add('active');
+            document.getElementById('userName').textContent = user?.name || 'Admin';
+            document.getElementById('avatar').textContent = (user?.name || 'A')[0].toUpperCase();
+            loadDashboard();
+            refreshInt = setInterval(loadDashboard, 5000);
+        }
+
+        document.querySelectorAll('.nav-item').forEach(n => n.addEventListener('click', () => { showPage(n.dataset.page); if (n.dataset.page === 'license') loadLicense(); if (n.dataset.page === 'users') loadUsers(); }));
+
+        async function loadDashboard() {
+            try {
+                const s = await api('/stats');
+                const lic = s.license;
+                let uPct = lic ? Math.round((s.connected_users / lic.max_concurrent_users) * 100) : 0;
+                let dPct = lic ? Math.round((s.connected_devices / lic.max_devices) * 100) : 0;
+                document.getElementById('stats').innerHTML = `
+                    <div class="stat"><div class="stat-value">${s.connected_users}</div><div class="stat-label">Verbundene Benutzer</div>${lic ? `<div class="progress"><div class="progress-bar ${uPct >= 90 ? 'danger' : uPct >= 70 ? 'warn' : ''}" style="width:${uPct}%"></div></div><div class="stat-sub">von ${lic.max_concurrent_users}</div>` : ''}</div>
+                    <div class="stat"><div class="stat-value">${s.connected_devices}</div><div class="stat-label">Verbundene Geräte</div>${lic ? `<div class="progress"><div class="progress-bar ${dPct >= 90 ? 'danger' : dPct >= 70 ? 'warn' : ''}" style="width:${dPct}%"></div></div><div class="stat-sub">von ${lic.max_devices}</div>` : ''}</div>
+                    <div class="stat"><div class="stat-value">${s.total_users}</div><div class="stat-label">Registrierte Benutzer</div><div class="stat-sub">${s.active_users} aktiv</div></div>
+                    <div class="stat"><div class="stat-value">${lic ? '✓' : '✗'}</div><div class="stat-label">Lizenz</div><div class="stat-sub">${lic ? (lic.expires_at ? 'bis ' + new Date(lic.expires_at).toLocaleDateString('de') : 'Unbegrenzt') : 'Nicht aktiv'}</div></div>`;
+                const u = await api('/users');
+                const online = u.users.filter(x => x.is_online);
+                document.getElementById('connections').innerHTML = online.length ? `<table><thead><tr><th>Benutzer</th><th>Geräte</th></tr></thead><tbody>${online.map(x => `<tr><td><strong>${x.name}</strong><br><small style="color:var(--muted)">${x.email}</small></td><td>${x.devices_connected.map(d => `<span class="badge badge-${d === 'desktop' ? 'primary' : 'warning'}">${d === 'desktop' ? '💻' : '📱'} ${d}</span>`).join(' ')}</td></tr>`).join('')}</tbody></table>` : '<p class="empty">Keine aktiven Verbindungen</p>';
+            } catch (e) { toast(e.message, 'error'); }
+        }
+
+        async function loadLicense() {
+            try {
+                const d = await api('/license');
+                const l = d.license;
+                if (!l) {
+                    document.getElementById('licenseContent').innerHTML = `<div class="license-box"><h3>🔑 Lizenz aktivieren</h3><p>Lizenzschlüssel eingeben</p><div class="license-input"><input type="text" id="licKeyInput" class="form-input" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="19"><button class="btn btn-primary" onclick="activateLicense()">Aktivieren</button></div></div>`;
+                    document.getElementById('licKeyInput').addEventListener('input', e => { let v = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase(); e.target.value = (v.match(/.{1,4}/g) || []).join('-').substring(0, 19); });
+                } else {
+                    document.getElementById('licenseContent').innerHTML = `<div class="card"><div class="card-header"><span class="card-title">Aktive Lizenz</span><span class="badge badge-success">Aktiv</span></div><div class="card-body"><div style="display:grid;grid-template-columns:1fr 1fr;gap:16px"><div><div style="color:var(--muted);font-size:11px;margin-bottom:2px">Schlüssel</div><div class="license-key">${l.key}</div></div><div><div style="color:var(--muted);font-size:11px;margin-bottom:2px">Gültig bis</div><div>${l.expires_at ? new Date(l.expires_at).toLocaleDateString('de') : 'Unbegrenzt'}</div></div><div><div style="color:var(--muted);font-size:11px;margin-bottom:2px">Max. gleichzeitige Benutzer</div><div><strong>${l.current_users}</strong> / ${l.max_concurrent_users}</div></div><div><div style="color:var(--muted);font-size:11px;margin-bottom:2px">Max. gleichzeitige Geräte</div><div><strong>${l.current_devices}</strong> / ${l.max_devices}</div></div></div><div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);display:flex;gap:8px"><button class="btn btn-secondary btn-sm" onclick="validateLicense()">Prüfen</button><button class="btn btn-danger btn-sm" onclick="deactivateLicense()">Deaktivieren</button></div></div></div>`;
+                }
+            } catch (e) { toast(e.message, 'error'); }
+        }
+
+        async function activateLicense() {
+            const k = document.getElementById('licKeyInput').value;
+            if (k.length < 19) { toast('Ungültiger Schlüssel', 'error'); return; }
+            try { await api('/license/activate', { method: 'POST', body: JSON.stringify({ license_key: k }) }); toast('Lizenz aktiviert!'); loadLicense(); loadDashboard(); } catch (e) { toast(e.message, 'error'); }
+        }
+        async function validateLicense() { try { await api('/license/validate', { method: 'POST' }); toast('Lizenz gültig'); loadLicense(); } catch (e) { toast(e.message, 'error'); } }
+        async function deactivateLicense() { if (!confirm('Lizenz deaktivieren? Alle werden getrennt.')) return; try { await api('/license/deactivate', { method: 'POST' }); toast('Deaktiviert'); loadLicense(); loadDashboard(); } catch (e) { toast(e.message, 'error'); } }
+
+        async function loadUsers() {
+            try {
+                const d = await api('/users');
+                users = d.users;
+                document.getElementById('usersTable').innerHTML = users.map(u => `<tr><td><strong>${u.name}</strong></td><td>${u.email}</td><td><span class="badge ${u.role === 'admin' ? 'badge-primary' : 'badge-warning'}">${u.role === 'admin' ? 'Admin' : 'User'}</span></td><td><span class="badge ${u.is_active ? 'badge-success' : 'badge-danger'}">${u.is_active ? 'Aktiv' : 'Inaktiv'}</span></td><td>${u.is_online ? `<span class="online"><span class="online-dot"></span> ${u.devices_connected.join(', ')}</span>` : '-'}</td><td><button class="action-btn" onclick="editUser('${u.id}')">✏️</button><button class="action-btn danger" onclick="deleteUser('${u.id}')">🗑️</button></td></tr>`).join('') || '<tr><td colspan="6" class="empty">Keine Benutzer</td></tr>';
+            } catch (e) { toast(e.message, 'error'); }
+        }
+
+        function openUserModal(u = null) {
+            document.getElementById('userModalTitle').textContent = u ? 'Benutzer bearbeiten' : 'Neuer Benutzer';
+            document.getElementById('userId').value = u?.id || '';
+            document.getElementById('userNameInput').value = u?.name || '';
+            document.getElementById('userEmail').value = u?.email || '';
+            document.getElementById('userEmail').disabled = !!u;
+            document.getElementById('userPassword').value = '';
+            document.getElementById('userPassword').required = !u;
+            document.getElementById('pwLabel').textContent = u ? 'Passwort (leer = unverändert)' : 'Passwort *';
+            document.getElementById('userRole').value = u?.role || 'user';
+            document.getElementById('userActive').checked = u?.is_active !== false;
+            openModal('userModal');
+        }
+        function editUser(id) { openUserModal(users.find(u => u.id === id)); }
+        async function deleteUser(id) { if (!confirm('Löschen?')) return; try { await api(`/users/${id}`, { method: 'DELETE' }); toast('Gelöscht'); loadUsers(); } catch (e) { toast(e.message, 'error'); } }
+
+        document.getElementById('userForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const id = document.getElementById('userId').value;
+            const data = { name: document.getElementById('userNameInput').value, email: document.getElementById('userEmail').value, role: document.getElementById('userRole').value, is_active: document.getElementById('userActive').checked };
+            const pw = document.getElementById('userPassword').value;
+            if (pw) data.password = pw;
+            try { if (id) await api(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }); else await api('/users', { method: 'POST', body: JSON.stringify(data) }); toast(id ? 'Aktualisiert' : 'Erstellt'); closeModal('userModal'); loadUsers(); } catch (e) { toast(e.message, 'error'); }
+        });
+
+        document.getElementById('loginForm').addEventListener('submit', async e => { e.preventDefault(); const err = document.getElementById('loginError'); err.style.display = 'none'; try { await login(document.getElementById('loginEmail').value, document.getElementById('loginPassword').value); } catch (e) { err.textContent = e.message; err.style.display = 'block'; } });
+        document.getElementById('logoutBtn').addEventListener('click', logout);
+        checkAuth();
+    </script>
+</body>
+</html>

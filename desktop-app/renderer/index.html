@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src *;">
+    <title>Dictation</title>
+    <style>
+        :root{--bg:#0f172a;--card:#1e293b;--input:#334155;--border:#475569;--text:#f1f5f9;--muted:#94a3b8;--primary:#3b82f6;--success:#22c55e;--danger:#ef4444;--warning:#f59e0b}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;user-select:none}
+        .titlebar{height:30px;background:var(--card);display:flex;justify-content:space-between;align-items:center;padding:0 8px;-webkit-app-region:drag}
+        .titlebar-title{font-size:12px;font-weight:500;display:flex;align-items:center;gap:6px}
+        .titlebar-btns{display:flex;-webkit-app-region:no-drag}
+        .titlebar-btn{width:30px;height:30px;border:none;background:none;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px}
+        .titlebar-btn:hover{background:var(--input);color:var(--text)}.titlebar-btn.close:hover{background:var(--danger);color:#fff}
+        .content{height:calc(100vh - 30px);overflow-y:auto;padding:14px}
+        .screen{display:none}.screen.active{display:block}
+        .login-box{max-width:100%}
+        .logo{text-align:center;margin-bottom:20px}.logo .icon{font-size:36px;margin-bottom:6px}.logo h1{font-size:18px}.logo p{color:var(--muted);font-size:12px}
+        .form-group{margin-bottom:12px}.form-label{display:block;margin-bottom:4px;font-size:11px;color:var(--muted)}
+        .form-input{width:100%;padding:9px 10px;background:var(--input);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px}.form-input:focus{outline:none;border-color:var(--primary)}
+        .btn{width:100%;padding:9px;background:var(--primary);border:none;border-radius:6px;color:#fff;font-size:13px;font-weight:500;cursor:pointer}.btn:hover{opacity:.9}.btn:disabled{opacity:.5;cursor:not-allowed}
+        .btn-secondary{background:var(--input);border:1px solid var(--border)}.btn-danger{background:var(--danger)}.btn-sm{padding:7px 10px;font-size:12px;width:auto}
+        .err{color:var(--danger);font-size:11px;margin-bottom:10px;text-align:center}
+        .user-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;display:flex;align-items:center;gap:10px;margin-bottom:10px}
+        .avatar{width:32px;height:32px;background:var(--primary);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:13px}
+        .status-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:10px}
+        .status-row{display:flex;justify-content:space-between;align-items:center;font-size:12px}
+        .status-row+.status-row{margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+        .dot{width:7px;height:7px;border-radius:50%;margin-right:5px;display:inline-block}
+        .dot.green{background:var(--success)}.dot.red{background:var(--danger)}.dot.yellow{background:var(--warning);animation:blink 1s infinite}
+        @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+        .waiting{text-align:center;padding:28px 14px;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:10px}
+        .waiting-icon{font-size:40px;margin-bottom:10px}.waiting-title{font-size:14px;font-weight:600;margin-bottom:4px}.waiting-hint{color:var(--muted);font-size:12px;line-height:1.4}
+        .connected{background:var(--card);border:1px solid var(--success);border-radius:8px;padding:14px;text-align:center;margin-bottom:10px}
+        .connected-icon{font-size:28px;margin-bottom:6px}.connected-title{font-size:13px;font-weight:600;color:var(--success)}
+        .preview-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:10px}
+        .preview-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+        .preview-title{font-size:10px;font-weight:600;text-transform:uppercase;color:var(--muted)}
+        .preview-text{min-height:70px;max-height:160px;overflow-y:auto;font-size:13px;line-height:1.5;color:var(--muted);white-space:pre-wrap;word-break:break-word}
+        .preview-text.has{color:var(--text)}
+        .tabs{display:flex;gap:3px;background:var(--card);padding:3px;border-radius:6px;margin-bottom:10px}
+        .tab{flex:1;padding:7px;background:none;border:none;border-radius:5px;color:var(--muted);font-size:11px;cursor:pointer}.tab:hover{color:var(--text)}.tab.active{background:var(--primary);color:#fff}
+        .settings-section{margin-bottom:14px}.settings-title{font-size:10px;font-weight:600;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+        .settings-item{display:flex;justify-content:space-between;align-items:center;padding:9px 10px;background:var(--card);border:1px solid var(--border);border-radius:6px;margin-bottom:5px;font-size:12px}
+        .toggle{position:relative;width:38px;height:20px}.toggle input{opacity:0;width:0;height:0}
+        .toggle-slider{position:absolute;cursor:pointer;inset:0;background:var(--input);border-radius:20px;transition:.3s}
+        .toggle-slider:before{position:absolute;content:"";height:14px;width:14px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}
+        .toggle input:checked+.toggle-slider{background:var(--primary)}.toggle input:checked+.toggle-slider:before{transform:translateX(18px)}
+        .page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.page-title{font-size:14px;font-weight:600}
+    </style>
+</head>
+<body>
+    <div class="titlebar">
+        <div class="titlebar-title"><span>🎤</span><span>Dictation</span></div>
+        <div class="titlebar-btns"><button class="titlebar-btn" id="minBtn">─</button><button class="titlebar-btn close" id="closeBtn">×</button></div>
+    </div>
+    <div class="content">
+        <div class="screen active" id="loginScreen">
+            <div class="login-box">
+                <div class="logo"><div class="icon">🎤</div><h1>Dictation Desktop</h1><p>Mit Server verbinden</p></div>
+                <form id="loginForm">
+                    <div class="form-group"><label class="form-label">Server URL</label><input type="url" id="serverUrl" class="form-input" placeholder="http://localhost:8080" required></div>
+                    <div class="form-group"><label class="form-label">E-Mail</label><input type="email" id="loginEmail" class="form-input" required></div>
+                    <div class="form-group"><label class="form-label">Passwort</label><input type="password" id="loginPassword" class="form-input" required></div>
+                    <div id="loginError" class="err" style="display:none"></div>
+                    <button type="submit" class="btn" id="loginBtn">Anmelden</button>
+                </form>
+            </div>
+        </div>
+        <div class="screen" id="mainScreen">
+            <div class="user-card">
+                <div class="avatar" id="avatar">U</div>
+                <div style="flex:1"><div style="font-weight:600;font-size:13px" id="userName">User</div><div style="font-size:11px;color:var(--muted)" id="userEmail">user@example.com</div></div>
+                <button class="btn btn-sm btn-secondary" id="settingsBtn">⚙️</button>
+            </div>
+            <div class="status-card">
+                <div class="status-row"><span>Server</span><span><span class="dot" id="serverDot"></span><span id="serverStatus">Verbinden...</span></span></div>
+                <div class="status-row"><span>Mobile</span><span><span class="dot" id="mobileDot"></span><span id="mobileStatus">Nicht verbunden</span></span></div>
+            </div>
+            <div class="waiting" id="waiting"><div class="waiting-icon">📱</div><div class="waiting-title">Warte auf Mobile...</div><div class="waiting-hint">Melden Sie sich mit demselben Konto<br>auf der Mobile-App an.</div></div>
+            <div id="connectedSection" style="display:none">
+                <div class="connected"><div class="connected-icon">📱</div><div class="connected-title">Mobile verbunden</div></div>
+                <div class="preview-card">
+                    <div class="preview-header"><span class="preview-title">Diktat</span><button class="btn btn-sm btn-secondary" id="clearBtn">🗑️</button></div>
+                    <div class="preview-text" id="previewText">Warten auf Diktat...</div>
+                </div>
+                <div class="tabs"><button class="tab active" data-mode="cursor">Am Cursor einfügen</button><button class="tab" data-mode="window">Im Fenster anzeigen</button></div>
+            </div>
+        </div>
+        <div class="screen" id="settingsScreen">
+            <div class="page-header"><span class="page-title">Einstellungen</span><button class="btn btn-sm btn-secondary" id="backBtn">← Zurück</button></div>
+            <div class="settings-section">
+                <div class="settings-title">Konto</div>
+                <div class="settings-item"><span>E-Mail</span><span style="color:var(--muted)" id="settingsEmail">-</span></div>
+            </div>
+            <div class="settings-section">
+                <div class="settings-title">Verhalten</div>
+                <div class="settings-item"><span>Im Tray minimieren</span><label class="toggle"><input type="checkbox" id="trayMode" checked><span class="toggle-slider"></span></label></div>
+            </div>
+            <div class="settings-section">
+                <div class="settings-title">Tastenkürzel</div>
+                <div class="settings-item"><span>Fenster</span><span style="color:var(--muted);font-family:monospace;font-size:10px">Ctrl+Shift+D</span></div>
+                <div class="settings-item"><span>Text-Fenster</span><span style="color:var(--muted);font-family:monospace;font-size:10px">Ctrl+Shift+T</span></div>
+            </div>
+            <button class="btn btn-danger" id="logoutBtn">Abmelden</button>
+        </div>
+    </div>
+    <script>
+        const { ipcRenderer } = require('electron');
+        let serverUrl = '', token = '', user = null, ws = null, paired = false, mode = 'cursor', fullText = '';
+
+        async function init() { const c = await ipcRenderer.invoke('get-config'); serverUrl = c.serverUrl; token = c.token; if (serverUrl) document.getElementById('serverUrl').value = serverUrl; if (token && serverUrl) checkAuth(); }
+        const showScreen = id => { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); };
+
+        const api = async (ep, opt = {}) => {
+            const r = await fetch(`${serverUrl}/api${ep}`, { ...opt, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...opt.headers } });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.error || 'Fehler');
+            return d;
+        };
+
+        async function login(email, pw) {
+            serverUrl = document.getElementById('serverUrl').value.replace(/\/$/, '');
+            const d = await api('/auth/login', { method: 'POST', body: JSON.stringify({ email, password: pw, device_type: 'desktop' }) });
+            token = d.token; user = d.user;
+            await ipcRenderer.invoke('save-config', { serverUrl, token });
+            updateUI(); showScreen('mainScreen'); connectWS();
+        }
+
+        async function logout() { if (ws) ws.close(); token = ''; user = null; paired = false; await ipcRenderer.invoke('logout'); showScreen('loginScreen'); }
+
+        async function checkAuth() { try { const d = await api('/auth/me'); user = d.user; updateUI(); showScreen('mainScreen'); connectWS(); } catch { logout(); } }
+
+        function updateUI() {
+            if (!user) return;
+            const n = user.name || user.email.split('@')[0];
+            document.getElementById('userName').textContent = n;
+            document.getElementById('userEmail').textContent = user.email;
+            document.getElementById('avatar').textContent = n[0].toUpperCase();
+            document.getElementById('settingsEmail').textContent = user.email;
+        }
+
+        function connectWS() {
+            if (ws) ws.close();
+            const u = serverUrl.replace(/^http/, 'ws');
+            ws = new WebSocket(u);
+            ws.onopen = () => ws.send(JSON.stringify({ type: 'auth', token, device_type: 'desktop' }));
+            ws.onmessage = e => {
+                const m = JSON.parse(e.data);
+                if (m.type === 'authenticated') { setServer(true); if (m.paired) setPaired(true); }
+                else if (m.type === 'paired') setPaired(true);
+                else if (m.type === 'partner_disconnected') setPaired(false);
+                else if (m.type === 'dictation') handleDictation(m);
+                else if (m.type === 'command') handleCommand(m.command);
+                else if (m.type === 'error') { alert(m.error); if (m.error.includes('lizenz') || m.error.includes('Lizenz') || m.error.includes('Session')) logout(); }
+            };
+            ws.onclose = () => { setServer(false); setPaired(false); setTimeout(() => { if (token) connectWS(); }, 3000); };
+        }
+
+        function setServer(ok) {
+            document.getElementById('serverDot').className = 'dot ' + (ok ? 'green' : 'red');
+            document.getElementById('serverStatus').textContent = ok ? 'Verbunden' : 'Getrennt';
+        }
+
+        function setPaired(p) {
+            paired = p;
+            document.getElementById('mobileDot').className = 'dot ' + (p ? 'green' : 'yellow');
+            document.getElementById('mobileStatus').textContent = p ? 'Verbunden' : 'Warten...';
+            document.getElementById('waiting').style.display = p ? 'none' : 'block';
+            document.getElementById('connectedSection').style.display = p ? 'block' : 'none';
+        }
+
+        function handleDictation(m) {
+            if (m.isFinal) {
+                fullText += m.text;
+                if (mode === 'cursor') ipcRenderer.send('insert-text', m.text);
+                else { ipcRenderer.send('update-text-window', fullText); ipcRenderer.send('show-text-window'); }
+            }
+            const el = document.getElementById('previewText');
+            el.textContent = fullText || 'Warten auf Diktat...';
+            el.classList.toggle('has', !!fullText);
+        }
+
+        function handleCommand(cmd) {
+            if (mode === 'cursor' && ['enter', 'space', 'backspace', 'tab'].includes(cmd)) ipcRenderer.send('execute-command', cmd);
+            if (cmd === 'clear') { fullText = ''; document.getElementById('previewText').textContent = 'Warten auf Diktat...'; document.getElementById('previewText').classList.remove('has'); ipcRenderer.send('update-text-window', ''); }
+        }
+
+        document.getElementById('minBtn').addEventListener('click', () => ipcRenderer.send('minimize-window'));
+        document.getElementById('closeBtn').addEventListener('click', () => ipcRenderer.send('close-window'));
+
+        document.getElementById('loginForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const err = document.getElementById('loginError');
+            err.style.display = 'none';
+            document.getElementById('loginBtn').disabled = true;
+            try { await login(document.getElementById('loginEmail').value, document.getElementById('loginPassword').value); }
+            catch (er) { err.textContent = er.message; err.style.display = 'block'; }
+            finally { document.getElementById('loginBtn').disabled = false; }
+        });
+
+        document.getElementById('clearBtn').addEventListener('click', () => { fullText = ''; document.getElementById('previewText').textContent = 'Warten auf Diktat...'; document.getElementById('previewText').classList.remove('has'); ipcRenderer.send('update-text-window', ''); });
+
+        document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+            t.classList.add('active');
+            mode = t.dataset.mode;
+            if (mode === 'window') ipcRenderer.send('show-text-window'); else ipcRenderer.send('hide-text-window');
+        }));
+
+        document.getElementById('settingsBtn').addEventListener('click', () => showScreen('settingsScreen'));
+        document.getElementById('backBtn').addEventListener('click', () => showScreen('mainScreen'));
+        document.getElementById('logoutBtn').addEventListener('click', () => { if (confirm('Abmelden?')) logout(); });
+
+        init();
+    </script>
+</body>
+</html>

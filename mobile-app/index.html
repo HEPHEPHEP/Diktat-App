@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0f172a">
+    <title>Dictation</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        :root{--bg:#0f172a;--card:#1e293b;--input:#334155;--border:#475569;--text:#f1f5f9;--muted:#94a3b8;--primary:#3b82f6;--success:#22c55e;--danger:#ef4444;--warning:#f59e0b;--safe-top:env(safe-area-inset-top,0);--safe-bottom:env(safe-area-inset-bottom,0)}
+        *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+        body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;min-height:100dvh}
+        .screen{display:none;flex-direction:column;min-height:100vh;min-height:100dvh;padding:calc(20px + var(--safe-top)) 20px calc(20px + var(--safe-bottom))}.screen.active{display:flex}
+        .login{justify-content:center;align-items:center}
+        .login-box{width:100%;max-width:340px}
+        .logo{text-align:center;margin-bottom:28px}.logo .icon{font-size:48px;margin-bottom:8px}.logo h1{font-size:22px}.logo p{color:var(--muted);font-size:13px}
+        .form-group{margin-bottom:14px}.form-label{display:block;margin-bottom:5px;font-size:13px;color:var(--muted)}
+        .form-input{width:100%;padding:13px 14px;background:var(--input);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:16px}.form-input:focus{outline:none;border-color:var(--primary)}
+        .btn{width:100%;padding:13px;background:var(--primary);border:none;border-radius:10px;color:#fff;font-size:16px;font-weight:600;cursor:pointer}.btn:disabled{opacity:.5}
+        .btn-secondary{background:var(--input);border:1px solid var(--border)}.btn-danger{background:var(--danger)}.btn-sm{padding:10px 14px;font-size:14px;width:auto}
+        .err{color:var(--danger);font-size:13px;margin-bottom:14px;text-align:center}
+        .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.header h2{font-size:20px}
+        .header-btn{background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:4px}
+        .user-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;margin-bottom:14px}
+        .avatar{width:42px;height:42px;background:var(--primary);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:17px}
+        .status-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px}
+        .status-row{display:flex;justify-content:space-between;align-items:center;font-size:14px}
+        .status-row+.status-row{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+        .dot{width:9px;height:9px;border-radius:50%;margin-right:7px;display:inline-block}
+        .dot.green{background:var(--success)}.dot.red{background:var(--danger)}.dot.yellow{background:var(--warning);animation:blink 1s infinite}
+        @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+        .waiting{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
+        .waiting-icon{font-size:56px;margin-bottom:14px}.waiting-title{font-size:17px;font-weight:600;margin-bottom:6px}.waiting-hint{color:var(--muted);font-size:13px;line-height:1.5}
+        .dictation{flex:1;display:flex;flex-direction:column}
+        .preview{flex:1;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:16px;overflow-y:auto;min-height:140px}
+        .preview-text{font-size:17px;line-height:1.6}.preview-text.empty{color:var(--muted);font-style:italic}
+        .preview-interim{color:var(--muted);background:var(--input);padding:2px 4px;border-radius:4px}
+        .mic-area{text-align:center;padding:14px 0}
+        .mic-btn{width:76px;height:76px;border-radius:50%;background:var(--primary);border:none;color:#fff;cursor:pointer;font-size:30px;transition:all .2s}.mic-btn:active{transform:scale(.95)}.mic-btn:disabled{opacity:.5;cursor:not-allowed}
+        .mic-btn.recording{background:var(--danger);animation:pulse 1.5s infinite}
+        @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4)}50%{box-shadow:0 0 0 18px rgba(239,68,68,0)}}
+        .mic-hint{color:var(--muted);font-size:13px;margin-top:10px}
+        .quick{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px}
+        .quick-btn{padding:10px 14px;background:var(--input);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;cursor:pointer}
+        .settings-section{margin-bottom:20px}.settings-title{font-size:11px;font-weight:600;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+        .settings-item{display:flex;justify-content:space-between;align-items:center;padding:13px 14px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:7px;font-size:14px}
+        .toggle{position:relative;width:48px;height:26px}.toggle input{opacity:0;width:0;height:0}
+        .toggle-slider{position:absolute;cursor:pointer;inset:0;background:var(--input);border-radius:26px;transition:.3s}
+        .toggle-slider:before{position:absolute;content:"";height:20px;width:20px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}
+        .toggle input:checked+.toggle-slider{background:var(--primary)}.toggle input:checked+.toggle-slider:before{transform:translateX(22px)}
+        .loading{position:fixed;inset:0;background:rgba(15,23,42,.95);display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:1000}.loading.active{display:flex}
+        .spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        select.form-input{padding:11px 12px}
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading"><div class="spinner"></div><span id="loadingText">Verbinden...</span></div>
+
+    <div class="screen login active" id="loginScreen">
+        <div class="login-box">
+            <div class="logo"><div class="icon">🎤</div><h1>Dictation</h1><p>Sprache zu Text</p></div>
+            <form id="loginForm">
+                <div class="form-group"><label class="form-label">Server URL</label><input type="url" id="serverUrl" class="form-input" placeholder="https://server.example.com" required></div>
+                <div class="form-group"><label class="form-label">E-Mail</label><input type="email" id="loginEmail" class="form-input" required></div>
+                <div class="form-group"><label class="form-label">Passwort</label><input type="password" id="loginPassword" class="form-input" required></div>
+                <div id="loginError" class="err" style="display:none"></div>
+                <button type="submit" class="btn">Anmelden</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="screen" id="mainScreen">
+        <div class="header"><h2>Dictation</h2><button class="header-btn" id="settingsBtn">⚙️</button></div>
+        <div class="user-card"><div class="avatar" id="avatar">U</div><div><div style="font-weight:600" id="userName">User</div><div style="font-size:12px;color:var(--muted)" id="userEmail">user@example.com</div></div></div>
+        <div class="status-card">
+            <div class="status-row"><span>Server</span><span><span class="dot" id="serverDot"></span><span id="serverStatus">Verbinden...</span></span></div>
+            <div class="status-row"><span>Desktop</span><span><span class="dot" id="desktopDot"></span><span id="desktopStatus">Nicht verbunden</span></span></div>
+        </div>
+        <div class="waiting" id="waiting"><div class="waiting-icon">💻</div><div class="waiting-title">Warte auf Desktop...</div><div class="waiting-hint">Melden Sie sich mit demselben Konto<br>auf der Desktop-App an.</div></div>
+        <div class="dictation" id="dictation" style="display:none">
+            <div class="preview"><div class="preview-text empty" id="previewText">Tippe auf das Mikrofon...</div></div>
+            <div class="mic-area"><button class="mic-btn" id="micBtn" disabled>🎤</button><p class="mic-hint" id="micHint">Tippen zum Starten</p></div>
+            <div class="quick">
+                <button class="quick-btn" data-cmd="enter">↵ Enter</button>
+                <button class="quick-btn" data-cmd="space">␣ Space</button>
+                <button class="quick-btn" data-cmd="backspace">⌫ Löschen</button>
+                <button class="quick-btn" data-cmd="clear">🗑️ Alles</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="screen" id="settingsScreen">
+        <div class="header"><h2>Einstellungen</h2><button class="header-btn" id="backBtn">←</button></div>
+        <div class="settings-section">
+            <div class="settings-title">Konto</div>
+            <div class="settings-item"><span>E-Mail</span><span style="color:var(--muted)" id="settingsEmail">-</span></div>
+        </div>
+        <div class="settings-section">
+            <div class="settings-title">Sprache</div>
+            <div class="settings-item"><span>Sprache</span><select id="langSelect" class="form-input" style="width:auto"><option value="de-DE">Deutsch</option><option value="en-US">English</option><option value="fr-FR">Français</option><option value="es-ES">Español</option></select></div>
+            <div class="settings-item"><span>Kontinuierlich</span><label class="toggle"><input type="checkbox" id="contMode" checked><span class="toggle-slider"></span></label></div>
+        </div>
+        <div class="settings-section"><button class="btn btn-danger" id="logoutBtn">Abmelden</button></div>
+    </div>
+
+    <script>
+        let serverUrl = localStorage.getItem('m_url') || '', token = localStorage.getItem('m_token') || '', user = null, ws = null, paired = false, recognition = null, recording = false, fullText = '';
+        if (serverUrl) document.getElementById('serverUrl').value = serverUrl;
+
+        const showScreen = id => { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); };
+        const showLoading = t => { document.getElementById('loadingText').textContent = t; document.getElementById('loading').classList.add('active'); };
+        const hideLoading = () => document.getElementById('loading').classList.remove('active');
+
+        const api = async (ep, opt = {}) => {
+            const r = await fetch(`${serverUrl}/api${ep}`, { ...opt, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...opt.headers } });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.error || 'Fehler');
+            return d;
+        };
+
+        async function login(email, pw) {
+            serverUrl = document.getElementById('serverUrl').value.replace(/\/$/, '');
+            const d = await api('/auth/login', { method: 'POST', body: JSON.stringify({ email, password: pw, device_type: 'mobile' }) });
+            token = d.token; user = d.user;
+            localStorage.setItem('m_url', serverUrl);
+            localStorage.setItem('m_token', token);
+            updateUI();
+            showScreen('mainScreen');
+            connectWS();
+        }
+
+        function logout() { if (ws) ws.close(); token = ''; user = null; paired = false; localStorage.removeItem('m_token'); showScreen('loginScreen'); }
+
+        async function checkAuth() {
+            if (!token || !serverUrl) return;
+            try { showLoading('Prüfen...'); const d = await api('/auth/me'); user = d.user; updateUI(); showScreen('mainScreen'); connectWS(); } catch { logout(); } finally { hideLoading(); }
+        }
+
+        function updateUI() {
+            if (!user) return;
+            const n = user.name || user.email.split('@')[0];
+            document.getElementById('userName').textContent = n;
+            document.getElementById('userEmail').textContent = user.email;
+            document.getElementById('avatar').textContent = n[0].toUpperCase();
+            document.getElementById('settingsEmail').textContent = user.email;
+        }
+
+        function connectWS() {
+            if (ws) ws.close();
+            const u = serverUrl.replace(/^http/, 'ws');
+            ws = new WebSocket(u);
+            ws.onopen = () => ws.send(JSON.stringify({ type: 'auth', token, device_type: 'mobile' }));
+            ws.onmessage = e => {
+                const m = JSON.parse(e.data);
+                if (m.type === 'authenticated') { setServer(true); if (m.paired) setPaired(true); }
+                else if (m.type === 'paired') setPaired(true);
+                else if (m.type === 'partner_disconnected') setPaired(false);
+                else if (m.type === 'error') { alert(m.error); if (m.error.includes('lizenz') || m.error.includes('Lizenz') || m.error.includes('Session')) logout(); }
+            };
+            ws.onclose = () => { setServer(false); setPaired(false); setTimeout(() => { if (token) connectWS(); }, 3000); };
+        }
+
+        function setServer(ok) {
+            document.getElementById('serverDot').className = 'dot ' + (ok ? 'green' : 'red');
+            document.getElementById('serverStatus').textContent = ok ? 'Verbunden' : 'Getrennt';
+        }
+
+        function setPaired(p) {
+            paired = p;
+            document.getElementById('desktopDot').className = 'dot ' + (p ? 'green' : 'yellow');
+            document.getElementById('desktopStatus').textContent = p ? 'Verbunden' : 'Warten...';
+            document.getElementById('waiting').style.display = p ? 'none' : 'flex';
+            document.getElementById('dictation').style.display = p ? 'flex' : 'none';
+            document.getElementById('micBtn').disabled = !p;
+        }
+
+        function initRecognition() {
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SR) { alert('Spracherkennung nicht unterstützt'); return; }
+            recognition = new SR();
+            recognition.continuous = document.getElementById('contMode').checked;
+            recognition.interimResults = true;
+            recognition.lang = document.getElementById('langSelect').value;
+            recognition.onstart = () => { recording = true; document.getElementById('micBtn').classList.add('recording'); document.getElementById('micHint').textContent = 'Aufnahme...'; };
+            recognition.onend = () => { recording = false; document.getElementById('micBtn').classList.remove('recording'); document.getElementById('micHint').textContent = 'Tippen zum Starten'; if (recognition.continuous && paired) recognition.start(); };
+            recognition.onresult = e => {
+                let interim = '', final = '';
+                for (let i = e.resultIndex; i < e.results.length; i++) {
+                    const t = e.results[i][0].transcript;
+                    if (e.results[i].isFinal) final += t; else interim += t;
+                }
+                const el = document.getElementById('previewText');
+                el.classList.remove('empty');
+                if (final) { fullText += final; el.innerHTML = fullText + (interim ? `<span class="preview-interim">${interim}</span>` : ''); send('dictation', { text: final, isFinal: true }); }
+                else if (interim) { el.innerHTML = fullText + `<span class="preview-interim">${interim}</span>`; send('dictation', { text: interim, isFinal: false }); }
+            };
+            recognition.onerror = () => { recording = false; document.getElementById('micBtn').classList.remove('recording'); document.getElementById('micHint').textContent = 'Fehler - erneut'; };
+        }
+
+        function send(type, data) { if (ws?.readyState === 1 && paired) ws.send(JSON.stringify({ type, ...data })); }
+
+        function sendCmd(cmd) {
+            send('command', { command: cmd });
+            if (cmd === 'clear') { fullText = ''; document.getElementById('previewText').innerHTML = 'Tippe auf das Mikrofon...'; document.getElementById('previewText').classList.add('empty'); }
+            else if (cmd === 'enter') fullText += '\n';
+            else if (cmd === 'space') fullText += ' ';
+            else if (cmd === 'backspace') fullText = fullText.slice(0, -1);
+            if (cmd !== 'clear' && fullText) document.getElementById('previewText').innerHTML = fullText;
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const err = document.getElementById('loginError');
+            err.style.display = 'none';
+            try { showLoading('Anmelden...'); await login(document.getElementById('loginEmail').value, document.getElementById('loginPassword').value); }
+            catch (er) { err.textContent = er.message; err.style.display = 'block'; }
+            finally { hideLoading(); }
+        });
+
+        document.getElementById('settingsBtn').addEventListener('click', () => showScreen('settingsScreen'));
+        document.getElementById('backBtn').addEventListener('click', () => showScreen('mainScreen'));
+        document.getElementById('logoutBtn').addEventListener('click', () => { if (confirm('Abmelden?')) logout(); });
+
+        document.getElementById('micBtn').addEventListener('click', () => {
+            if (!recognition) initRecognition();
+            if (recording) recognition.stop();
+            else { recognition.lang = document.getElementById('langSelect').value; recognition.continuous = document.getElementById('contMode').checked; recognition.start(); }
+        });
+
+        document.querySelectorAll('.quick-btn').forEach(b => b.addEventListener('click', () => sendCmd(b.dataset.cmd)));
+
+        document.getElementById('langSelect').addEventListener('change', e => localStorage.setItem('m_lang', e.target.value));
+        document.getElementById('contMode').addEventListener('change', e => localStorage.setItem('m_cont', e.target.checked));
+        const savedLang = localStorage.getItem('m_lang'); if (savedLang) document.getElementById('langSelect').value = savedLang;
+        const savedCont = localStorage.getItem('m_cont'); if (savedCont !== null) document.getElementById('contMode').checked = savedCont === 'true';
+
+        checkAuth();
+    </script>
+</body>
+</html>
