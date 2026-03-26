@@ -16,15 +16,43 @@ const crypto = require('crypto');
 const url = require('url');
 const fs = require('fs');
 const path = require('path');
+const bcrypt = require('bcryptjs');
 
-// Config
+// Config — Pflicht-Secrets müssen gesetzt sein, keine unsicheren Defaults
 const PORT = process.env.PORT || 8080;
-const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
-const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000;
 const DATA_DIR = process.env.DATA_DIR || './data';
-const LICENSE_SERVER_URL = process.env.LICENSE_SERVER_URL || 'http://localhost:8083/api.php';
-const LICENSE_SERVER_SECRET = process.env.LICENSE_SERVER_SECRET || 'license-server-secret-key';
+const LICENSE_SERVER_URL = process.env.LICENSE_SERVER_URL || 'http://license-server/api.php';
 const SERVER_ID = process.env.SERVER_ID || 'srv_' + crypto.randomBytes(4).toString('hex');
+
+// Sicherheitskritische Werte: Server startet NICHT ohne diese Variablen
+const JWT_SECRET = process.env.JWT_SECRET;
+const LICENSE_SERVER_SECRET = process.env.LICENSE_SERVER_SECRET;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+const missingSecrets = [];
+if (!JWT_SECRET || JWT_SECRET.length < 32) missingSecrets.push('JWT_SECRET (min. 32 Zeichen)');
+if (!LICENSE_SERVER_SECRET || LICENSE_SERVER_SECRET.length < 16) missingSecrets.push('LICENSE_SERVER_SECRET (min. 16 Zeichen)');
+if (!ADMIN_PASSWORD || ADMIN_PASSWORD.length < 8) missingSecrets.push('ADMIN_PASSWORD (min. 8 Zeichen)');
+
+if (missingSecrets.length > 0) {
+    console.error('');
+    console.error('╔═══════════════════════════════════════════════════════════╗');
+    console.error('║  FEHLER: Pflicht-Umgebungsvariablen fehlen oder zu kurz  ║');
+    console.error('╠═══════════════════════════════════════════════════════════╣');
+    missingSecrets.forEach(s => console.error(`║  ✗ ${s}`));
+    console.error('║                                                           ║');
+    console.error('║  → Kopiere .env.example nach .env und fülle die Werte    ║');
+    console.error('╚═══════════════════════════════════════════════════════════╝');
+    console.error('');
+    process.exit(1);
+}
+
+// CORS: Erlaubte Origins (kommagetrennt in ALLOWED_ORIGINS, oder Default für Entwicklung)
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(o => o.trim())
+    .filter(Boolean);
+const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000;
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -55,8 +83,10 @@ const db = new DB('data.json');
 // ============================================================================
 // Utils
 // ============================================================================
-const hash = pw => crypto.createHash('sha256').update(pw + JWT_SECRET).digest('hex');
-const verify = (pw, h) => hash(pw) === h;
+// Passwort-Hashing mit bcrypt (Kostenfaktor 12 = sicher gegen Brute-Force)
+const BCRYPT_ROUNDS = 12;
+const hashPassword = async (pw) => bcrypt.hash(pw, BCRYPT_ROUNDS);
+const verifyPassword = async (pw, h) => bcrypt.compare(pw, h);
 const genToken = () => crypto.randomBytes(48).toString('base64url');
 
 // ============================================================================
@@ -90,11 +120,11 @@ async function callLicenseServer(endpoint, method, body = null) {
 // ============================================================================
 // Init
 // ============================================================================
-function init() {
+async function init() {
     if (db.count('users') === 0) {
-        const pw = process.env.ADMIN_PASSWORD || 'admin123';
-        db.insert('users', { email: 'admin@localhost', password_hash: hash(pw), name: 'Administrator', role: 'admin', is_active: true });
-        console.log('✓ Admin created: admin@localhost / ' + pw);
+        const passwordHash = await hashPassword(ADMIN_PASSWORD);
+        db.insert('users', { email: 'admin@localhost', password_hash: passwordHash, name: 'Administrator', role: 'admin', is_active: true });
+        console.log('✓ Admin erstellt: admin@localhost (Passwort aus ADMIN_PASSWORD)');
     }
     const lic = db.get('license');
     if (lic?.activation_id) {
@@ -207,7 +237,7 @@ const routes = {
         if (!['mobile', 'desktop'].includes(device_type)) return { status: 400, body: { error: 'device_type muss mobile oder desktop sein' } };
         
         const user = db.findOne('users', u => u.email.toLowerCase() === email.toLowerCase());
-        if (!user || !verify(password, user.password_hash)) return { status: 401, body: { error: 'Ungültige Anmeldedaten' } };
+        if (!user || !(await verifyPassword(password, user.password_hash))) return { status: 401, body: { error: 'Ungültige Anmeldedaten' } };
         if (!user.is_active) return { status: 403, body: { error: 'Konto deaktiviert' } };
         
         // Lizenz prüfen für Nicht-Admins
@@ -326,7 +356,7 @@ const routes = {
         if (password.length < 6) return { status: 400, body: { error: 'Passwort min. 6 Zeichen' } };
         if (db.findOne('users', u => u.email.toLowerCase() === email.toLowerCase())) return { status: 409, body: { error: 'E-Mail existiert bereits' } };
         
-        const user = db.insert('users', { email: email.toLowerCase(), password_hash: hash(password), name, role: role || 'user', is_active: true });
+        const user = db.insert('users', { email: email.toLowerCase(), password_hash: await hashPassword(password), name, role: role || 'user', is_active: true });
         return { status: 201, body: { user: { id: user.id, email: user.email, name: user.name, role: user.role } } };
     },
     
@@ -339,7 +369,7 @@ const routes = {
         if (body.name) updates.name = body.name;
         if (body.role) updates.role = body.role;
         if (typeof body.is_active === 'boolean') updates.is_active = body.is_active;
-        if (body.password?.length >= 6) updates.password_hash = hash(body.password);
+        if (body.password?.length >= 6) updates.password_hash = await hashPassword(body.password);
         
         db.update('users', params.id, updates);
         
@@ -408,7 +438,12 @@ function matchRoute(method, pathname) {
 }
 
 async function handleHttp(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // CORS: Nur explizit erlaubte Origins
+    const origin = req.headers.origin;
+    if (origin && ALLOWED_ORIGINS.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Vary', 'Origin');
+    }
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
@@ -497,17 +532,19 @@ function setupWS(server) {
 // ============================================================================
 // Start
 // ============================================================================
-init();
-const server = http.createServer(handleHttp);
-setupWS(server);
-server.listen(PORT, () => {
-    console.log('');
-    console.log('╔═══════════════════════════════════════════════════════════╗');
-    console.log('║         DICTATION SERVER v3 - Auto-Pairing                ║');
-    console.log('╠═══════════════════════════════════════════════════════════╣');
-    console.log(`║  HTTP:      http://localhost:${PORT}/api                     ║`);
-    console.log(`║  WebSocket: ws://localhost:${PORT}                           ║`);
-    console.log(`║  Server-ID: ${SERVER_ID}                              ║`);
-    console.log('╚═══════════════════════════════════════════════════════════╝');
-    console.log('');
-});
+(async () => {
+    await init();
+    const server = http.createServer(handleHttp);
+    setupWS(server);
+    server.listen(PORT, () => {
+        console.log('');
+        console.log('╔═══════════════════════════════════════════════════════════╗');
+        console.log('║         DICTATION SERVER v3 - Auto-Pairing                ║');
+        console.log('╠═══════════════════════════════════════════════════════════╣');
+        console.log(`║  HTTP:      http://localhost:${PORT}/api                     ║`);
+        console.log(`║  WebSocket: ws://localhost:${PORT}                           ║`);
+        console.log(`║  Server-ID: ${SERVER_ID}                              ║`);
+        console.log('╚═══════════════════════════════════════════════════════════╝');
+        console.log('');
+    });
+})();

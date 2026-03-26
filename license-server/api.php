@@ -7,18 +7,20 @@
  */
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+// Kein CORS — License-Server ist nur intern (Docker-Netzwerk) erreichbar
+// Falls doch externer Zugriff nötig: explizite Origins konfigurieren
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
+// Nur interne Anfragen — kein CORS-Preflight nötig
+
+// Config — Secret MUSS über Umgebungsvariable gesetzt sein
+define('DATA_DIR', __DIR__ . '/data');
+$apiSecret = getenv('LICENSE_API_SECRET');
+if (!$apiSecret || strlen($apiSecret) < 16) {
+    http_response_code(500);
+    echo json_encode(['error' => 'LICENSE_API_SECRET nicht gesetzt oder zu kurz (min. 16 Zeichen)']);
     exit;
 }
-
-// Config
-define('DATA_DIR', __DIR__ . '/data');
-define('API_SECRET', getenv('LICENSE_API_SECRET') ?: 'license-server-secret-key');
+define('API_SECRET', $apiSecret);
 
 if (!file_exists(DATA_DIR)) mkdir(DATA_DIR, 0755, true);
 

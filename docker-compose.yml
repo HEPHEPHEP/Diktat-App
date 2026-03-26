@@ -1,17 +1,18 @@
 version: '3.8'
 
 services:
-  # License Server (PHP)
+  # License Server (PHP) — NUR intern erreichbar!
   license-server:
     image: php:8.2-apache
     container_name: dictation-license
-    ports:
-      - "8083:80"
+    # KEIN "ports:" — nur über das interne Docker-Netzwerk erreichbar
+    expose:
+      - "80"
     volumes:
       - ./license-server:/var/www/html
       - license-data:/var/www/html/data
     environment:
-      - LICENSE_API_SECRET=${LICENSE_API_SECRET:-license-server-secret-key}
+      - LICENSE_API_SECRET=${LICENSE_API_SECRET:?LICENSE_API_SECRET muss in .env gesetzt sein}
     restart: unless-stopped
 
   # Main Server (API + WebSocket)
@@ -22,12 +23,13 @@ services:
       - "8080:8080"
     environment:
       - PORT=8080
-      - JWT_SECRET=${JWT_SECRET:-change-this-in-production}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET muss in .env gesetzt sein}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD muss in .env gesetzt sein}
       - DATA_DIR=/app/data
       - LICENSE_SERVER_URL=http://license-server/api.php
-      - LICENSE_SERVER_SECRET=${LICENSE_API_SECRET:-license-server-secret-key}
+      - LICENSE_SERVER_SECRET=${LICENSE_API_SECRET:?LICENSE_API_SECRET muss in .env gesetzt sein}
       - SERVER_ID=${SERVER_ID:-server-001}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:8081,http://localhost:8082}
     volumes:
       - server-data:/app/data
     restart: unless-stopped
